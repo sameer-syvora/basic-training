@@ -1,0 +1,2 @@
+Hi! This is just a sample text file created using a shell script.
+Hi! This is just another sample text added to the file.
