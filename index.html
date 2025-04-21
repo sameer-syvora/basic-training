@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tetris</title>
+  <meta charset="UTF-8">
+  <style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: Arial, sans-serif;
+  }
+
+  body {
+    background: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  canvas {
+    border: 2px solid white;
+  }
+
+  .game-container {
+    display: flex;
+    margin-bottom: 20px;
+  }
+
+  .info-panel {
+    color: white;
+    font-family: monospace;
+    margin-left: 20px;
+    width: 150px;
+  }
+
+  .info-panel h1 {
+    font-size: 36px;
+    margin-bottom: 30px;
+    color: #ff6600;
+  }
+
+  .info-item {
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+
+  #restart-btn {
+    display: none;
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 18px;
+    background: #ff6600;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  #restart-btn:hover {
+    background: #ff8533;
+  }
+
+  .controls {
+    color: white;
+    margin-top: 20px;
+    text-align: center;
+  }
+  </style>
+</head>
+<body>
+<div class="game-container">
+  <canvas width="320" height="640" id="game"></canvas>
+  <div class="info-panel">
+    <h1>TETRIS</h1>
+    <div class="info-item">High Score:<span id="highscore">0</span></div>
+    <div class="info-item">Score:      <span id="score">0</span></div>
+    <div class="info-item">Level:      <span id="level">1</span></div>
+    <div class="info-item">Lines:      <span id="lines">0</span></div>
+    <div class="info-item">Next:</div>
+    <canvas width="100" height="100" id="next-piece"></canvas>
+    <button id="restart-btn">PLAY AGAIN</button>
+  </div>
+</div>
+
+
+
+<script>
+// Game variables
+let highscore = JSON.parse(localStorage.getItem('highscore')) || 0;
+let score = 0;
+let level = 1;
+let lines = 0;
+let linesToNextLevel = 5;
+
+// Helper function to get random numbers
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Generate a sequence of tetromino pieces
+function generateSequence() {
+  const sequence = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+  while (sequence.length) {
+    const rand = getRandomInt(0, sequence.length - 1);
+    const name = sequence.splice(rand, 1)[0];
+    tetrominoSequence.push(name);
+  }
+}
+
+// Get the next tetromino piece
+function getNextTetromino() {
+  if (tetrominoSequence.length === 0) {
+    generateSequence();
+  }
+
+  const name = tetrominoSequence.pop();
+  const matrix = tetrominos[name];
+  const col = playfield[0].length / 2 - Math.ceil(matrix[0].length / 2);
+  const row = name === 'I' ? -1 : -2;
+
+  return {
+    name: name,
+    matrix: matrix,
+    row: row,
+    col: col
+  };
+}
+
+// Rotate a matrix 
+function rotate(matrix) {
+  const N = matrix.length - 1;
+  const result = matrix.map((row, i) => 
+    row.map((val, j) => matrix[N - j][i])
+  );
+  return result;
+}
+
+// Check if a move is valid
+function isValidMove(matrix, cellRow, cellCol) {
+  for (let row = 0; row < matrix.length; row++) {
+    for (let col = 0; col < matrix[row].length; col++) {
+      if (matrix[row][col] && (
+          cellCol + col < 0 ||
+          cellCol + col >= playfield[0].length ||
+          cellRow + row >= playfield.length ||
+          playfield[cellRow + row][cellCol + col])
+        ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Update the score display
+function updateScore() {
+  document.getElementById('highscore').textContent = highscore;
+  document.getElementById('score').textContent = score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('lines').textContent = lines;
+}
+
+// Draw the next piece 
+function drawNextPiece() {
+  const nextContext = nextCanvas.getContext('2d');
+  nextContext.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  
+  if (nextTetromino) {
+    nextContext.fillStyle = colors[nextTetromino.name];
+    const matrix = nextTetromino.matrix;
+    const centerX = (nextCanvas.width / 2) - (matrix[0].length * grid / 2);
+    const centerY = (nextCanvas.height / 2) - (matrix.length * grid / 2);
+    
+    for (let row = 0; row < matrix.length; row++) {
+      for (let col = 0; col < matrix[row].length; col++) {
+        if (matrix[row][col]) {
+          nextContext.fillRect(centerX + col * grid, centerY + row * grid, grid-1, grid-1);
+        }
+      }
+    }
+  }
+}
+
+// Place the tetromino
+function placeTetromino() {
+  for (let row = 0; row < tetromino.matrix.length; row++) {
+    for (let col = 0; col < tetromino.matrix[row].length; col++) {
+      if (tetromino.matrix[row][col]) {
+        if (tetromino.row + row < 0) {
+          return showGameOver();
+        }
+        playfield[tetromino.row + row][tetromino.col + col] = tetromino.name;
+      }
+    }
+  }
+
+  // Check for completed lines
+  let linesCleared = 0;
+  for (let row = playfield.length - 1; row >= 0; ) {
+    if (playfield[row].every(cell => !!cell)) {
+      linesCleared++;
+      for (let r = row; r >= 0; r--) {
+        for (let c = 0; c < playfield[r].length; c++) {
+          playfield[r][c] = playfield[r-1][c];
+        }
+      }
+    } else {
+      row--;
+    }
+  }
+
+  // Update score based on lines cleared
+  if (linesCleared > 0) {
+    lines += linesCleared;
+    score += [100, 300, 500, 800][linesCleared - 1] * level;
+
+  // Update high score if required
+  if(score > highscore) {
+    highscore = score;
+  }
+    
+    // Level up every 5 lines
+    if (lines >= linesToNextLevel) {
+      level++;
+      linesToNextLevel += 5;
+    }
+    updateScore();
+  }
+
+  // Get next piece
+  tetromino = nextTetromino;
+  nextTetromino = getNextTetromino();
+  drawNextPiece();
+}
+
+// Show game over screen
+function showGameOver() {
+  cancelAnimationFrame(rAF);
+  gameOver = true;
+
+  if(highscore > (JSON.parse(localStorage.getItem('highscore')) || 0)) {
+    localStorage.setItem('highscore', JSON.stringify(highscore));
+  }
+
+  context.fillStyle = 'black';
+  context.globalAlpha = 0.75;
+  context.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
+
+  context.globalAlpha = 1;
+  context.fillStyle = 'white';
+  context.font = '36px monospace';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('GAME OVER!', canvas.width / 2, canvas.height / 2);
+
+  // Show restart button
+  document.getElementById('restart-btn').style.display = 'block';
+}
+
+// Restart the game
+function restartGame() {
+  // Reset game state
+  score = 0;
+  level = 1;
+  lines = 0;
+  linesToNextLevel = 5;
+  
+  // Clear playfield
+  for (let row = -2; row < 20; row++) {
+    playfield[row] = [];
+    for (let col = 0; col < 10; col++) {
+      playfield[row][col] = 0;
+    }
+  }
+  
+  // Reset tetrominos
+  tetrominoSequence.length = 0;
+  tetromino = getNextTetromino();
+  nextTetromino = getNextTetromino();
+  
+  // Update UI
+  updateScore();
+  drawNextPiece();
+  document.getElementById('restart-btn').style.display = 'none';
+  
+  // Start game
+  gameOver = false;
+  rAF = requestAnimationFrame(loop);
+}
+
+// Initialize game elements
+const canvas = document.getElementById('game');
+const context = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next-piece');
+const grid = 32;
+const tetrominoSequence = [];
+
+// Create empty playfield
+const playfield = [];
+for (let row = -2; row < 20; row++) {
+  playfield[row] = [];
+  for (let col = 0; col < 10; col++) {
+    playfield[row][col] = 0;
+  }
+}
+
+// Tetromino shapes
+const tetrominos = {
+  'I': [
+    [0,0,0,0],
+    [1,1,1,1],
+    [0,0,0,0],
+    [0,0,0,0]
+  ],
+  'J': [
+    [1,0,0],
+    [1,1,1],
+    [0,0,0],
+  ],
+  'L': [
+    [0,0,1],
+    [1,1,1],
+    [0,0,0],
+  ],
+  'O': [
+    [1,1],
+    [1,1],
+  ],
+  'S': [
+    [0,1,1],
+    [1,1,0],
+    [0,0,0],
+  ],
+  'Z': [
+    [1,1,0],
+    [0,1,1],
+    [0,0,0],
+  ],
+  'T': [
+    [0,1,0],
+    [1,1,1],
+    [0,0,0],
+  ]
+};
+
+// Tetromino colors
+const colors = {
+  'I': 'cyan',
+  'O': 'yellow',
+  'T': 'purple',
+  'S': 'green',
+  'Z': 'red',
+  'J': 'blue',
+  'L': 'orange'
+};
+
+let count = 0;
+let tetromino = getNextTetromino();
+let nextTetromino = getNextTetromino();
+let rAF = null;
+let gameOver = false;
+
+// Draw the next piece initially
+drawNextPiece();
+updateScore();
+
+// Main game loop
+function loop() {
+  rAF = requestAnimationFrame(loop);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw the playfield
+  for (let row = 0; row < 20; row++) {
+    for (let col = 0; col < 10; col++) {
+      if (playfield[row][col]) {
+        const name = playfield[row][col];
+        context.fillStyle = colors[name];
+        context.fillRect(col * grid, row * grid, grid-1, grid-1);
+      }
+    }
+  }
+
+  // Draw the active tetromino
+  if (tetromino) {
+    // Piece falls automatically
+    if (++count > Math.max(5, 35 - level * 3)) {
+      tetromino.row++;
+      count = 0;
+
+      if (!isValidMove(tetromino.matrix, tetromino.row, tetromino.col)) {
+        tetromino.row--;
+        placeTetromino();
+      }
+    }
+
+    context.fillStyle = colors[tetromino.name];
+    for (let row = 0; row < tetromino.matrix.length; row++) {
+      for (let col = 0; col < tetromino.matrix[row].length; col++) {
+        if (tetromino.matrix[row][col]) {
+          context.fillRect((tetromino.col + col) * grid, (tetromino.row + row) * grid, grid-1, grid-1);
+        }
+      }
+    }
+  }
+}
+
+// Keyboard controls
+document.addEventListener('keydown', function(e) {
+  if (gameOver) return;
+
+  switch(e.key) {
+    case 'ArrowLeft':
+    case 'a':
+      // Move left
+      const leftCol = tetromino.col - 1;
+      if (isValidMove(tetromino.matrix, tetromino.row, leftCol)) {
+        tetromino.col = leftCol;
+      }
+      break;
+
+    case 'ArrowRight':
+    case 'd':
+      // Move right
+      const rightCol = tetromino.col + 1;
+      if (isValidMove(tetromino.matrix, tetromino.row, rightCol)) {
+        tetromino.col = rightCol;
+      }
+      break;
+
+    case 'ArrowUp':
+    case 'w':
+      // Rotate
+      const matrix = rotate(tetromino.matrix);
+      if (isValidMove(matrix, tetromino.row, tetromino.col)) {
+        tetromino.matrix = matrix;
+      }
+      break;
+
+    case 'ArrowDown':
+    case 's':
+      // Drop faster
+      const downRow = tetromino.row + 1;
+      if (!isValidMove(tetromino.matrix, downRow, tetromino.col)) {
+        tetromino.row = downRow - 1;
+        placeTetromino();
+        return;
+      }
+      tetromino.row = downRow;
+      break;
+  }
+});
+
+// Restart button event listener
+document.getElementById('restart-btn').addEventListener('click', restartGame);
+
+// Start the game
+rAF = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
