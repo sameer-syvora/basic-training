@@ -1,0 +1,35 @@
+{
+  "name": "connectify",
+  "version": "1.0.0",
+  "description": "This is a basic social media app",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm start"
+  },
+  "keywords": [
+    "SocialMedia"
+  ],
+  "author": "Sameer",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.7"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.3"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sameer-syvora/basic-training.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sameer-syvora/basic-training/issues"
+  },
+  "homepage": "https://github.com/sameer-syvora/basic-training#readme"
+}
