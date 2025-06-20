@@ -4,7 +4,7 @@ import { User } from "../models/watchlistModel.js";
 
 const generateToken = (user) => {
     return jwt.sign({ id: user.id, username: user.username }, process.env.JWTSECRETCODE, {
-        expiresIn: '30d',
+        expiresIn: '1d',
     });
 };
 
@@ -23,16 +23,16 @@ export const signup = async (req, res) => {
         const user = await User.create({ username, email, password: hashed });
 
         const token = generateToken(user);
-        return res.status(201).json({ token, "message": "User created successfully"});
+        return res.status(201).json({ token });
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(500).json({ error: "Server Error" });
     }
 };
 
 export const login = async (req, res) => {
     const { email, password } = req.body;
 
-    if( !email, !password ){
+    if( !email || !password ){
         return res.status(400).json({ message: "Email and password required" });
     }
 
@@ -44,7 +44,7 @@ export const login = async (req, res) => {
         if (!match) return res.status(401).json({ message: "Wrong password" });
 
         const token = generateToken(user);
-        res.json({ token, message: "Login Successful" });
+        res.json({ token });
     }
     catch(err){
         return res.status(500).json({ message: "Server error"});

@@ -17,9 +17,7 @@ passport.use(
                 if (!user) {
                     user = await User.create({
                         username: profile.displayName,
-                        email,
-                        password: "google-oauth",
-                        role: "user"
+                        email
                     });
                 }
 

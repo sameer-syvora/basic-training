@@ -1,16 +1,13 @@
 import { Content } from "../models/watchlistModel.js";
-import { filterContentData } from "./contentController.js";
 
 export const getWatchlist = async (req, res) => {
     try {
         const contents = await req.user.getContents();
-        const result = filterContentData(contents, req);
-        return res.json(result);
-        //return res.json(contents);
+        return res.json(contents);
     }
     catch (err) {
         console.error("Error fetching watchlist:", err);
-        return res.status(500).json({ message: "Server Error: Unable to fetch watchlist" });
+        return res.status(500).json({ message: "Server Error" });
     }
 };
 
@@ -31,7 +28,7 @@ export const addToWatchlist = async (req, res) => {
     }
     catch (err) {
         console.error("Error adding to watchlist:", err);
-        return res.status(500).json({ message: "Server Error: Unable to add to watchlist" });
+        return res.status(500).json({ message: "Server Error" });
     }
 };
 
@@ -57,4 +54,3 @@ export const subscribe = async (req, res) => {
     await req.user.save();
     return res.json({ message: `Subscribed for ${days} days`, subscriptionEnd: newEndDate });
 };
-

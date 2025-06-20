@@ -7,6 +7,7 @@ import userRouter from "./routes/userRoutes.js";
 import adminRouter from "./routes/adminRoutes.js";
 import contentRouter from "./routes/contentRoutes.js";
 import { checkToken } from "./middlewares/authMiddleware.js";
+import jwt from "jsonwebtoken";
 import "./config/passport.js";
 
  const app = express();
@@ -30,12 +31,12 @@ app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "em
 app.get("/auth/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {
-    const token = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ id: req.user.id }, process.env.JWTSECRETCODE);
     res.json({ token });
   }
 );
 
-await sequelize.sync({ force: true });
+await sequelize.sync();
 
 const PORT = 8000;
 const HOST = "localhost";
